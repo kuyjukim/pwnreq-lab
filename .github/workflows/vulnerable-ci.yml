@@ -1,0 +1,36 @@
+# SELF-OWNED REPRODUCTION LAB — do NOT point this at anyone else's infra.
+# Mirrors the vulnerable pattern of microservices-demo ci-pr.yaml on YOUR repo,
+# with a DUMMY secret, so you can personally confirm the pwn-request mechanism.
+#
+# The point it demonstrates: a `pull_request_target` workflow that checks out
+# fork code AND then executes repo-provided code, while a secret is present on
+# the runner, lets an untrusted fork PR run arbitrary code that can read the
+# secret — with no approval gate.
+name: vulnerable-ci (repro lab)
+
+on:
+  pull_request_target: {}          # <-- the dangerous trigger (runs with secrets)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # NOTE: microservices-demo relied ONLY on `environment: gke-staging`, whose
+    # protection_rules were empty. To also demo the gate, add `environment: staging`
+    # and leave that environment with NO required reviewers.
+    steps:
+      - name: Checkout UNTRUSTED fork code (attacker-controlled)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}   # fork HEAD
+
+      - name: Simulate cloud auth (writes a DUMMY credential onto the runner)
+        # Stands in for google-github-actions/auth@v2, which places a real GCP
+        # token on the runner. Here it is a fake value from a repo secret.
+        run: |
+          echo "${{ secrets.FAKE_CLOUD_TOKEN }}" > "${RUNNER_TEMP:-/tmp}/creds.txt"
+          echo "dummy credential staged at ${RUNNER_TEMP:-/tmp}/creds.txt"
+
+      - name: Build (executes repo-provided, i.e. FORK-CONTROLLED, code)
+        # Stands in for `skaffold run` building fork Dockerfiles. build.sh comes
+        # from the checked-out fork, so a fork PR fully controls what runs here.
+        run: bash ./ci/build.sh
